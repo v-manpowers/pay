@@ -49,6 +49,7 @@ const RELEASE_NOTES: { version: string; date: string; notes: string[] }[] = [
       "Schema-versioned local persistence — console state survives reloads and upgrades",
       "Installable app shell — web manifest, offline service worker, signed Android APK path via Bubblewrap",
       "Android app parity — material-style bottom tab bar on phones and a live on-device preview",
+      "Release bundle download — real .zip with checksum manifest and the Bubblewrap APK build kit",
       "Error boundary, keyboard shortcuts (1–5, /, ?), and sandbox reset under Danger zone",
     ],
   },

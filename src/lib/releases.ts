@@ -42,6 +42,7 @@ export const RELEASES: Release[] = [
           "Developer console: sandbox API keys with rotation, cURL / Node / Python quickstarts, webhook delivery log",
           "Operations overview: live throughput chart, authorization feed, hourly volume, declines, network mix",
           "CSV export of the filtered ledger and clamped pagination controls",
+          "One-click release bundle (.zip) with SHA-256 manifest and the Android APK build kit",
           "Boot sequence, keyboard shortcuts (1–5, /, ?), and a once-per-session release banner",
         ],
       },

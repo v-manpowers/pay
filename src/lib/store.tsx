@@ -20,6 +20,12 @@ import {
   seedWebhooks,
 } from "./engine";
 
+export const VERSION = "1.0.0";
+export const SCHEMA = 2;
+
+const LS_KEY = "switchboard:state";
+const TXN_CAP = 140;
+
 export interface AppState {
   env: Env;
   running: boolean;
@@ -31,8 +37,6 @@ export interface AppState {
   keys: Keys;
   toasts: Toast[];
 }
-
-const LS_KEY = "switchboard:v1";
 
 function seedState(): AppState {
   return {
@@ -48,32 +52,63 @@ function seedState(): AppState {
   };
 }
 
+/* ---------- payload validation (survive corrupted / stale storage) ---------- */
+const STATUSES = ["approved", "declined", "pending", "refunded"];
+
+function isTxn(t: unknown): t is Txn {
+  if (!t || typeof t !== "object") return false;
+  const x = t as Record<string, unknown>;
+  return (
+    typeof x.id === "string" &&
+    typeof x.created === "number" &&
+    typeof x.amount === "number" &&
+    typeof x.currency === "string" &&
+    typeof x.last4 === "string" &&
+    typeof x.name === "string" &&
+    typeof x.risk === "number" &&
+    STATUSES.includes(x.status as string)
+  );
+}
+
+function asNumbers(arr: unknown, fallback: number[]): number[] {
+  return Array.isArray(arr) && arr.length && arr.every((n) => typeof n === "number" && Number.isFinite(n))
+    ? (arr as number[])
+    : fallback;
+}
+
+interface Persisted {
+  schema: number;
+  savedAt: number;
+  data: Partial<AppState>;
+}
+
 function loadState(): AppState {
+  const base = seedState();
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const p = JSON.parse(raw) as Partial<AppState>;
-      const base = seedState();
-      return {
-        ...base,
-        env: p.env ?? "test",
-        running: p.running ?? true,
-        txns: Array.isArray(p.txns) && p.txns.length ? p.txns : base.txns,
-        series: Array.isArray(p.series) && p.series.length ? p.series : base.series,
-        hourly: Array.isArray(p.hourly) && p.hourly.length ? p.hourly : base.hourly,
-        webhooks: Array.isArray(p.webhooks) && p.webhooks.length ? p.webhooks : base.webhooks,
-        keys: p.keys && p.keys.secret ? p.keys : base.keys,
-        toasts: [],
-      };
-    }
+    if (!raw) return base;
+    const p = JSON.parse(raw) as Persisted;
+    if (!p || p.schema !== SCHEMA || !p.data) return base; // stale schema → reseed cleanly
+    const d = p.data;
+    return {
+      ...base,
+      env: d.env === "live" ? "live" : "test",
+      running: d.running !== false,
+      txns: Array.isArray(d.txns) && d.txns.length ? (d.txns.filter(isTxn).slice(0, TXN_CAP) || base.txns) : base.txns,
+      series: asNumbers(d.series, base.series),
+      hourly: asNumbers(d.hourly, base.hourly),
+      webhooks: Array.isArray(d.webhooks) && d.webhooks.length ? d.webhooks : base.webhooks,
+      keys: d.keys && typeof d.keys.secret === "string" && d.keys.secret.startsWith("sk_") ? d.keys : base.keys,
+      toasts: [],
+    };
   } catch {
     /* corrupted storage — fall through to seed */
   }
-  return seedState();
+  return base;
 }
 
 function withTxn(s: AppState, txn: Txn): AppState {
-  const txns = [txn, ...s.txns].slice(0, 140);
+  const txns = [txn, ...s.txns].slice(0, TXN_CAP);
   const win = txn.status === "declined" ? Math.round(rnd(30, 140)) : Math.max(4, Math.round(txn.amount / 100));
   const series = [...s.series.slice(1), win];
   const hourly = [...s.hourly];
@@ -97,6 +132,7 @@ interface Api {
   refund: (id: string) => void;
   rotateKeys: () => void;
   sendTestEvent: () => WebhookEvent;
+  resetSandbox: () => void;
   toast: (kind: Toast["kind"], msg: string) => void;
   dismissToast: (id: number) => void;
 }
@@ -107,23 +143,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(loadState);
   const toastSeq = useRef(1);
 
-  /* persist a slice of state */
+  /* persist a bounded slice of state, stamped with the schema version */
   useEffect(() => {
     try {
-      localStorage.setItem(
-        LS_KEY,
-        JSON.stringify({
+      const payload: Persisted = {
+        schema: SCHEMA,
+        savedAt: Date.now(),
+        data: {
           env: state.env,
           running: state.running,
-          txns: state.txns.slice(0, 70),
+          txns: state.txns.slice(0, 90),
           series: state.series,
           hourly: state.hourly,
           webhooks: state.webhooks.slice(0, 14),
           keys: state.keys,
-        })
-      );
+        },
+      };
+      localStorage.setItem(LS_KEY, JSON.stringify(payload));
     } catch {
-      /* storage unavailable */
+      /* storage full or unavailable — console keeps running in-memory */
     }
   }, [state.env, state.running, state.txns, state.series, state.hourly, state.webhooks, state.keys]);
 
@@ -198,8 +236,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         keys: freshKeys(),
         webhooks: [makeWebhook("account.key_rotated", "acct_1Nq4"), ...s.webhooks].slice(0, 30),
       })),
+    resetSandbox: () => {
+      try {
+        localStorage.removeItem(LS_KEY);
+      } catch {
+        /* noop */
+      }
+      setState(seedState());
+      toast("info", "Sandbox reset — fresh keys issued, ledger reseeded.");
+    },
     sendTestEvent: () => {
-      const evt = makeWebhook("ping.test", "evt_test");
+      const evt = makeWebhook("ping.test", "manual_test");
       setState((s) => ({ ...s, webhooks: [evt, ...s.webhooks].slice(0, 30) }));
       return evt;
     },
@@ -208,12 +255,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
 }
 
-export function useApp(): Api {
+export function useApp() {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useApp must be used inside <AppProvider>");
   return ctx;
 }
 
-export function txnSummary(t: Txn): string {
-  return `${money(t.amount, t.currency)} · ${t.brand} ·••• ${t.last4}`;
-}
+export { money };

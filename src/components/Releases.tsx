@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CURRENT_VERSION, RELEASES, releaseMarkdown, type ChangeKind, type Release } from "../lib/releases";
-import { buildAndroidKitZip, buildReleaseBundleZip, downloadBlob } from "../lib/releaseZip";
+import { buildAndroidKitZip, buildAppBundleZip, buildReleaseBundleZip, downloadBlob } from "../lib/releaseZip";
 import { useApp } from "../lib/store";
 import { IconBolt, IconCheck, IconChevron, IconCopy, IconDownload, IconTag } from "./icons";
 import { CopyBtn, SectionLabel } from "./ui";
@@ -67,6 +67,7 @@ function ReleaseCard({ release, index }: { release: Release; index: number }) {
   const [showAssets, setShowAssets] = useState(Boolean(release.latest));
   const [zipping, setZipping] = useState(false);
   const [zippingKit, setZippingKit] = useState(false);
+  const [zippingApp, setZippingApp] = useState(false);
   const isLatest = Boolean(release.latest);
 
   async function downloadBundle() {
@@ -80,6 +81,20 @@ function ReleaseCard({ release, index }: { release: Release; index: number }) {
       toast("bad", "Couldn't assemble the bundle in this browser.");
     } finally {
       setZipping(false);
+    }
+  }
+
+  async function downloadApp() {
+    setZippingApp(true);
+    try {
+      const blob = await buildAppBundleZip(release);
+      const name = `switchboard-${release.version.replace(/^v/, "")}-app.zip`;
+      downloadBlob(blob, name);
+      toast("ok", `App build downloading — unzip, serve, and install it on any device.`);
+    } catch {
+      toast("bad", "Couldn't fetch the app build from this origin.");
+    } finally {
+      setZippingApp(false);
     }
   }
 
@@ -216,6 +231,24 @@ function ReleaseCard({ release, index }: { release: Release; index: number }) {
                       build kit
                     </button>
                   )}
+                  {a.name.endsWith("-app.zip") && (
+                    <button
+                      type="button"
+                      onClick={downloadApp}
+                      disabled={zippingApp}
+                      title="Download this asset — the installable app build"
+                      className="inline-flex items-center gap-1 rounded-md bg-pine-600 px-2 py-1 font-mono text-[10px] font-bold text-white transition-all hover:bg-pine-500 active:scale-95 disabled:opacity-60"
+                    >
+                      {zippingApp ? (
+                        <svg viewBox="0 0 24 24" className="h-3 w-3 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.6">
+                          <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+                        </svg>
+                      ) : (
+                        <IconDownload className="h-3 w-3" />
+                      )}
+                      {zippingApp ? "packing…" : "get the app"}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -224,21 +257,44 @@ function ReleaseCard({ release, index }: { release: Release; index: number }) {
 
         <footer className={`flex flex-wrap items-center gap-2 border-t px-4 py-3 md:px-5 ${isLatest ? "border-ink-700" : "border-line"}`}>
           {isLatest && (
-            <button
-              type="button"
-              onClick={downloadBundle}
-              disabled={zipping}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-pine-600 px-3 py-1.5 font-mono text-[11.5px] font-bold text-white shadow-md shadow-pine-600/25 transition-all hover:bg-pine-500 active:scale-95 disabled:cursor-wait disabled:opacity-70"
-            >
-              {zipping ? (
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.6">
-                  <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
-                </svg>
-              ) : (
-                <IconDownload className="h-3.5 w-3.5" />
-              )}
-              {zipping ? "packing…" : "download bundle (.zip)"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={downloadApp}
+                disabled={zippingApp}
+                title="Downloads the complete installable app as a .zip"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-pine-600 px-3 py-1.5 font-mono text-[11.5px] font-bold text-white shadow-md shadow-pine-600/25 transition-all hover:bg-pine-500 active:scale-95 disabled:cursor-wait disabled:opacity-70"
+              >
+                {zippingApp ? (
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.6">
+                    <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <IconDownload className="h-3.5 w-3.5" />
+                )}
+                {zippingApp ? "packing app…" : "download app (.zip)"}
+              </button>
+              <button
+                type="button"
+                onClick={downloadBundle}
+                disabled={zipping}
+                title="Release bundle: notes + checksums + Android kit"
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 font-mono text-[11.5px] font-semibold transition-all active:scale-95 disabled:cursor-wait disabled:opacity-70 ${
+                  isLatest
+                    ? "border-ink-700 text-fog hover:bg-ink-850 hover:text-white"
+                    : "border-line text-mute hover:border-ink-900 hover:text-ink-900"
+                }`}
+              >
+                {zipping ? (
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.6">
+                    <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <IconDownload className="h-3.5 w-3.5" />
+                )}
+                {zipping ? "packing…" : "release bundle (.zip)"}
+              </button>
+            </>
           )}
           <button
             type="button"

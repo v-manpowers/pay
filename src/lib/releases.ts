@@ -78,6 +78,12 @@ export const RELEASES: Release[] = [
     ],
     assets: [
       {
+        name: "switchboard-1.0.0-app.zip",
+        size: "1.2 MB",
+        sha256: "e7f1c93b5a4d82069cc14f0e3d87ba952601df48ecb93572aa061c4839de57f8",
+        note: "Installable app — complete runnable build with TWA kit, ready to serve or compile",
+      },
+      {
         name: "switchboard-1.0.0-dist.tar.gz",
         size: "1.9 MB",
         sha256: "8f43d9c1a07be2f55c9d3e10b6a44f27d91c8a35e0f7b2164d8893ce5a1f07b2",

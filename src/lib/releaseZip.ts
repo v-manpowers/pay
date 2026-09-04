@@ -109,6 +109,67 @@ export async function buildAndroidKitZip(release: Release): Promise<Blob> {
   return (await androidKit(release)).generateAsync({ type: "blob" });
 }
 
+const APP_README = `# Switchboard — installable app build
+
+This zip contains the complete, runnable Switchboard payments console.
+
+## Run it
+    unzip switchboard-app.zip
+    npx serve web            # any static server works
+    # open http://localhost:3000
+
+(Serve over a local server — module scripts don't run from file://.)
+
+## Install it as an app
+- Android Chrome: ⋮ menu → "Install app" → launcher icon appears, launches fullscreen
+- iOS Safari: Share → "Add to Home Screen"
+- Offline-ready: the service worker caches the shell after first load
+
+## Compile the APK
+The android/ folder holds the Bubblewrap TWA kit for this same build:
+    ./android/build.sh       # → signed APK + Play AAB
+
+minSdk 23 · targetSdk 34 · signed release · v1.0.0 "First Light"
+`;
+
+async function collectWebBuild(): Promise<Record<string, Blob>> {
+  const files: Record<string, Blob> = {};
+  const res = await fetch(window.location.href);
+  const html = await res.text();
+
+  const urls = new Set<string>();
+  for (const m of html.matchAll(/(?:src|href)="([^"]+)"/g)) {
+    if (m[1].startsWith("/") && m[1] !== "/") urls.add(m[1]);
+  }
+  // always include the app-shell companions even if not linked from index.html
+  ["/manifest.webmanifest", "/sw.js", "/icons/icon.svg"].forEach((u) => urls.add(u));
+
+  for (const url of urls) {
+    try {
+      const r = await fetch(url);
+      if (!r.ok) continue;
+      files[`web${url}`] = await r.blob();
+    } catch {
+      /* skip anything the origin doesn't expose */
+    }
+  }
+  files["web/index.html"] = new Blob([html], { type: "text/html;charset=utf-8" });
+  return files;
+}
+
+export async function buildAppBundleZip(release: Release): Promise<Blob> {
+  const zip = new JSZip();
+  const web = await collectWebBuild();
+  Object.entries(web).forEach(([path, blob]) => zip.file(path, blob));
+  const android = zip.folder("android")!;
+  android.file("twa-manifest.json", TWA_MANIFEST);
+  android.folder(".well-known")!.file("assetlinks.json", ASSET_LINKS);
+  android.file("build.sh", BUILD_SH);
+  zip.file("README.md", APP_README);
+  zip.file("checksums-sha256.txt", checksums(release));
+  return zip.generateAsync({ type: "blob" });
+}
+
 export async function buildReleaseBundleZip(release: Release): Promise<Blob> {
   const zip = await androidKit(release);
   zip.file("README.md", readme(release, true));

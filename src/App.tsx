@@ -51,6 +51,7 @@ const RELEASE_NOTES: { version: string; date: string; notes: string[] }[] = [
       "Android app parity — material-style bottom tab bar on phones and a live on-device preview",
       "Release bundle download — real .zip with checksum manifest and the Bubblewrap APK build kit",
       "One-click app download from the release — packs the live installable build as a ready-to-serve .zip",
+      "Android project download — complete Gradle TWA that ./build-apk.sh compiles into the signed APK",
       "Error boundary, keyboard shortcuts (1–5, /, ?), and sandbox reset under Danger zone",
     ],
   },

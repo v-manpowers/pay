@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import type { Release } from "./releases";
-import { releaseMarkdown } from "./releases";
+import { CURRENT_VERSION, releaseMarkdown } from "./releases";
 
 const TWA_MANIFEST = `{
   "packageId": "dev.switchboard.twa",
@@ -93,6 +93,235 @@ function checksums(release: Release): string {
   return release.assets
     .map((a) => `${a.sha256}  ${a.size.padEnd(8)}  ${a.name}`)
     .join("\n") + "\n";
+}
+
+/* ------------------------------------------------------------------ */
+/* Full Android Studio TWA project — compiles to the signed .apk/.aab  */
+/* ------------------------------------------------------------------ */
+
+const GRADLE_ROOT = `// Switchboard ${CURRENT_VERSION} — root build file
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
+}
+
+allprojects {
+    repositories { google(); mavenCentral() }
+}
+
+tasks.register("clean", Delete) { delete rootProject.buildDir }
+`;
+
+const GRADLE_SETTINGS = `rootProject.name = "switchboard-android"
+include ":app"
+`;
+
+const GRADLE_PROPS = `android.useAndroidX=true
+org.gradle.jvmargs=-Xmx2048m
+`;
+
+const APP_GRADLE = `apply plugin: "com.android.application"
+
+def keystorePropsFile = rootProject.file("keystore.properties")
+def hasReleaseKey = keystorePropsFile.exists()
+
+android {
+    namespace "dev.switchboard.twa"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "dev.switchboard.twa"
+        minSdk 23
+        targetSdk 34
+        versionCode 10000
+        versionName "${CURRENT_VERSION.replace(/^v/, "")}"
+    }
+
+    signingConfigs {
+        if (hasReleaseKey) {
+            def props = new Properties()
+            keystorePropsFile.withInputStream { props.load(it) }
+            release {
+                storeFile file(props["storeFile"])
+                storePassword props["storePassword"]
+                keyAlias props["keyAlias"]
+                keyPassword props["keyPassword"]
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (hasReleaseKey) signingConfig signingConfigs.release
+            else signingConfig signingConfigs.debug   // first build works out of the box
+        }
+    }
+}
+
+dependencies {
+    implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.5.0"
+}
+`;
+
+const ANDROID_MANIFEST = `<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <application
+      android:label="@string/app_name"
+      android:icon="@mipmap/ic_launcher"
+      android:allowBackup="true"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar">
+
+    <activity
+        android:name="android.support.customtabs.trusted.LauncherActivity"
+        android:exported="true"
+        android:launchMode="singleTask">
+
+      <meta-data
+          android:name="android.support.customtabs.trusted.DEFAULT_URL"
+          android:value="https://your-domain.example" />
+
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+
+      <!-- Lets Chrome hand the verified domain to this app (fullscreen, no URL bar) -->
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="https" android:host="your-domain.example" />
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>
+`;
+
+const STRINGS_XML = `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Switchboard</string>
+</resources>
+`;
+
+const COLORS_XML = `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="ink_950">#07101D</color>
+  <color name="pine_600">#0B7A65</color>
+</resources>
+`;
+
+const ADAPTIVE_ICON = `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+  <background android:drawable="@color/ink_950" />
+  <foreground android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>
+`;
+
+const ICON_FOREGROUND = `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+  <!-- switchboard glyph, centered in the adaptive-icon safe zone -->
+  <group android:scaleX="1" android:scaleY="1">
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="6.5" android:strokeLineCap="round"
+        android:pathData="M30,42 L60,42" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="6.5" android:strokeLineCap="round"
+        android:pathData="M30,54 L78,54" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="6.5" android:strokeLineCap="round"
+        android:pathData="M30,66 L60,66" />
+    <path android:fillColor="#12937B" android:pathData="M70,42 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+    <path android:fillColor="#12937B" android:pathData="M42,66 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+  </group>
+</vector>
+`;
+
+const BUILD_APK_SH = `#!/usr/bin/env bash
+set -euo pipefail
+# Switchboard ${CURRENT_VERSION} — one command to a signed Android package.
+# Output: app/build/outputs/apk/release/app-release.apk  →  switchboard-${CURRENT_VERSION.replace(/^v/, "")}.apk
+
+# 1) Keystore (created once — reuse it for every future version)
+if [ ! -f release-keystore.jks ]; then
+  command -v keytool >/dev/null || { echo "keytool (JDK 17+) is required to sign"; exit 1; }
+  keytool -genkeypair -v -keystore release-keystore.jks -alias switchboard-release \\
+    -keyalg RSA -keysize 2048 -validity 10000 -storepass switchboard \\
+    -dname "CN=Switchboard, OU=Releases, O=Switchboard, L=Berlin, S=BE, C=DE"
+  printf 'storeFile=release-keystore.jks\\nstorePassword=switchboard\\nkeyAlias=switchboard-release\\nkeyPassword=switchboard\\n' > keystore.properties
+  echo "→ print the cert fingerprint and add it to .well-known/assetlinks.json:"
+  keytool -list -v -keystore release-keystore.jks -storepass switchboard | grep SHA256
+fi
+
+# 2) Build (Bubblewrap if present, otherwise Gradle)
+if command -v bubblewrap >/dev/null; then
+  bubblewrap build
+else
+  command -v gradle >/dev/null || { echo "install Android Studio / gradle, or: npm i -g @bubblewrap/cli"; exit 1; }
+  gradle assembleRelease bundleRelease
+fi
+
+echo "✓ APK ready: app/build/outputs/apk/release/app-release.apk"
+echo "✓ AAB ready: app/build/outputs/bundle/release/app-release.aab"
+echo "  install: adb install -r app-release.apk"
+`;
+
+const PROJECT_README = `# Switchboard ${CURRENT_VERSION} — Android project
+
+A complete Trusted Web Activity app. Compiles to the signed, installable
+**switchboard-${CURRENT_VERSION.replace(/^v/, "")}.apk** (plus a Play Store .aab) — no code changes needed.
+
+## Build the APK (one command)
+
+\`\`\`bash
+./build-apk.sh
+\`\`\`
+
+Requires JDK 17+ and either Android Studio/Gradle or \`npm i -g @bubblewrap/cli\`.
+The script creates the signing keystore on first run and prints the cert
+fingerprint to paste into \`assetlinks.json\`.
+
+## Then
+
+1. Deploy the web build (see the release's app.zip) over HTTPS.
+2. Publish \`assetlinks.json\` at \`https://your-domain.example/.well-known/assetlinks.json\`.
+3. Set the domain in \`app/src/main/AndroidManifest.xml\` (two \`your-domain.example\` spots).
+4. \`adb install -r app-release.apk\` — the console launches fullscreen, verified by the asset link.
+
+## Contents
+
+| Path | Purpose |
+|---|---|
+| \`app/build.gradle\` | applicationId \`dev.switchboard.twa\`, versionCode 10000, signing config |
+| \`app/src/main/AndroidManifest.xml\` | TWA launcher activity + domain intent filters |
+| \`app/src/main/res/…\` | adaptive launcher icon built from the Switchboard glyph |
+| \`assetlinks.json\` | Digital Asset Link for fullscreen verification |
+| \`build-apk.sh\` | keystore + compile, one command |
+
+minSdk 23 (Android 6.0+) · targetSdk 34 · signed release build
+`;
+
+export async function buildAndroidProjectZip(release: Release): Promise<Blob> {
+  const zip = new JSZip();
+  const root = zip.folder(`switchboard-${release.version.replace(/^v/, "")}-android`)!;
+  root.file("README.md", PROJECT_README.replace(/\$\{CURRENT_VERSION\}/g, release.version));
+  root.file("build.gradle", GRADLE_ROOT.replace(/\$\{CURRENT_VERSION\}/g, release.version));
+  root.file("settings.gradle", GRADLE_SETTINGS);
+  root.file("gradle.properties", GRADLE_PROPS);
+  root.file("build-apk.sh", BUILD_APK_SH.replace(/\$\{CURRENT_VERSION\}/g, release.version));
+  root.file("assetlinks.json", ASSET_LINKS);
+  const app = root.folder("app")!;
+  app.file("build.gradle", APP_GRADLE.replace(/\$\{CURRENT_VERSION\}/g, release.version));
+  const main = app.folder("src/main")!;
+  main.file("AndroidManifest.xml", ANDROID_MANIFEST);
+  const values = main.folder("res/values")!;
+  values.file("strings.xml", STRINGS_XML);
+  values.file("colors.xml", COLORS_XML);
+  const mipmap = main.folder("res/mipmap-anydpi-v26")!;
+  mipmap.file("ic_launcher.xml", ADAPTIVE_ICON);
+  const drawable = main.folder("res/drawable")!;
+  drawable.file("ic_launcher_foreground.xml", ICON_FOREGROUND);
+  return zip.generateAsync({ type: "blob" });
 }
 
 async function androidKit(release: Release): Promise<JSZip> {

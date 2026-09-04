@@ -245,6 +245,15 @@ export function BrandMark({ brand, className }: { brand: Brand; className?: stri
   }
 }
 
+export const IconAndroid = ({ className }: P) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <path d="M4.5 13.5a7.5 7.5 0 0 1 15 0v1.5h-15v-1.5Z" />
+    <path d="m7.2 5.4 1.5 2.5M16.8 5.4l-1.5 2.5" />
+    <circle cx="9.2" cy="11.3" r="0.5" fill="currentColor" stroke="none" />
+    <circle cx="14.8" cy="11.3" r="0.5" fill="currentColor" stroke="none" />
+    <path d="M5.5 15v2.2A2.8 2.8 0 0 0 8.3 20h7.4a2.8 2.8 0 0 0 2.8-2.8V15" />
+  </svg>
+);
 export const IconDownload = ({ className }: P) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
     <path d="M12 3v11m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />

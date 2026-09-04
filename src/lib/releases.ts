@@ -97,7 +97,7 @@ export const RELEASES: Release[] = [
         name: "switchboard-1.0.0.apk",
         size: "6.4 MB",
         sha256: "4c9a31d7f2b8e5061aa02f3d9c4b7e68d15a2f90c3e8b4d6759102fe8a1c3d70",
-        note: "Android TWA build — Bubblewrap, signed with the release keystore",
+        note: "the signed binary — compile it with the android project (.zip) beside it: ./build-apk.sh",
       },
       {
         name: "switchboard-1.0.0.aab",

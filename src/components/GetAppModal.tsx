@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { buildAppBundleZip, downloadBlob } from "../lib/releaseZip";
+import { buildAndroidProjectZip, buildAppBundleZip, downloadBlob } from "../lib/releaseZip";
 import { CURRENT_VERSION, RELEASES } from "../lib/releases";
 import { useApp } from "../lib/store";
-import { IconBolt, IconCode, IconDownload, IconGlobe, IconInfo, IconShield } from "./icons";
+import { IconAndroid, IconBolt, IconCode, IconDownload, IconGlobe, IconInfo, IconShield } from "./icons";
 import PhonePreview from "./PhonePreview";
 import { CopyBtn, Modal, ModalClose, SectionLabel } from "./ui";
 
@@ -51,6 +51,21 @@ export default function GetAppModal({
       toast("bad", "Couldn't fetch the app build from this origin.");
     } finally {
       setZipping(false);
+    }
+  }
+
+  const [zippingAndroid, setZippingAndroid] = useState(false);
+  async function downloadAndroidProject() {
+    setZippingAndroid(true);
+    try {
+      const release = RELEASES[0];
+      const blob = await buildAndroidProjectZip(release);
+      downloadBlob(blob, `switchboard-${CURRENT_VERSION.replace(/^v/, "")}-android-project.zip`);
+      toast("ok", "Android project downloading — ./build-apk.sh compiles the signed APK.");
+    } catch {
+      toast("bad", "Couldn't assemble the Android project in this browser.");
+    } finally {
+      setZippingAndroid(false);
     }
   }
 
@@ -115,6 +130,40 @@ export default function GetAppModal({
               “Add to Home Screen”. The native prompt appears here automatically when the browser offers it.
             </p>
           )}
+        </div>
+
+        {/* android package — the APK */}
+        <div className="mt-3 rounded-xl border border-line bg-paper/70 p-4">
+          <div className="flex items-center gap-2">
+            <IconAndroid className="h-4 w-4 text-pine-600" />
+            <SectionLabel>Android package · APK</SectionLabel>
+            <span className="ml-auto font-mono text-[9.5px] uppercase tracking-wider text-mute2">
+              one command to the binary
+            </span>
+          </div>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={downloadAndroidProject}
+              disabled={zippingAndroid}
+              className="inline-flex items-center gap-2 rounded-lg bg-ink-900 px-3.5 py-2 font-display text-[13px] font-bold text-white shadow-md shadow-ink-900/20 transition-all hover:bg-ink-800 active:translate-y-px disabled:cursor-wait disabled:opacity-70"
+            >
+              {zippingAndroid ? (
+                <svg viewBox="0 0 24 24" className="h-4 w-4 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.6">
+                  <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <IconDownload className="h-4 w-4" />
+              )}
+              {zippingAndroid ? "Packing…" : `Download Android project (.zip)`}
+            </button>
+            <span className="min-w-[200px] flex-1 font-mono text-[10px] leading-relaxed text-mute">
+              contains Gradle + manifest + launcher icon + keystore script — run{" "}
+              <code className="rounded bg-card px-1 py-0.5 text-[9.5px] text-ink-900">./build-apk.sh</code> once
+              and it signs <span className="font-semibold text-ink-900">switchboard-{CURRENT_VERSION.replace(/^v/, "")}.apk</span>,
+              installable on any Android 6.0+
+            </span>
+          </div>
         </div>
 
         {/* android apk */}

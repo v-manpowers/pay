@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { CURRENT_VERSION, RELEASES, releaseMarkdown, type ChangeKind, type Release } from "../lib/releases";
-import { buildAndroidKitZip, buildAppBundleZip, buildReleaseBundleZip, downloadBlob } from "../lib/releaseZip";
+import { buildAndroidKitZip, buildAndroidProjectZip, buildAppBundleZip, buildReleaseBundleZip, downloadBlob } from "../lib/releaseZip";
 import { useApp } from "../lib/store";
-import { IconBolt, IconCheck, IconChevron, IconCopy, IconDownload, IconTag } from "./icons";
+import { IconAndroid, IconBolt, IconCheck, IconChevron, IconCopy, IconDownload, IconTag } from "./icons";
 import { CopyBtn, SectionLabel } from "./ui";
 
 const KIND_META: Record<ChangeKind, { label: string; cls: string }> = {
@@ -101,12 +101,12 @@ function ReleaseCard({ release, index }: { release: Release; index: number }) {
   async function downloadKit(artifact: string) {
     setZippingKit(true);
     try {
-      const blob = await buildAndroidKitZip(release);
-      const name = `switchboard-${release.version.replace(/^v/, "")}-android-kit.zip`;
+      const blob = await buildAndroidProjectZip(release);
+      const name = `switchboard-${release.version.replace(/^v/, "")}-android-project.zip`;
       downloadBlob(blob, name);
-      toast("ok", `Build kit for ${artifact} downloading — run android/build.sh to produce it.`);
+      toast("ok", `Android project for ${artifact} downloading — ./build-apk.sh compiles it.`);
     } catch {
-      toast("bad", "Couldn't assemble the build kit in this browser.");
+      toast("bad", "Couldn't assemble the Android project in this browser.");
     } finally {
       setZippingKit(false);
     }
@@ -214,7 +214,7 @@ function ReleaseCard({ release, index }: { release: Release; index: number }) {
                       type="button"
                       onClick={() => downloadKit(a.name)}
                       disabled={zippingKit}
-                      title="Download the Android build kit that compiles this artifact"
+                      title="Download the Android project that compiles to this signed artifact"
                       className={`inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-[10px] font-bold transition-all active:scale-95 disabled:opacity-60 ${
                         isLatest
                           ? "bg-pine-600/20 text-pine-500 hover:bg-pine-600/30"
@@ -228,7 +228,7 @@ function ReleaseCard({ release, index }: { release: Release; index: number }) {
                       ) : (
                         <IconDownload className="h-3 w-3" />
                       )}
-                      build kit
+                      android project (.zip)
                     </button>
                   )}
                   {a.name.endsWith("-app.zip") && (
@@ -334,24 +334,102 @@ export default function Releases() {
   const gaCount = RELEASES.filter((r) => !r.prerelease).length;
   const { toast } = useApp();
   const [packing, setPacking] = useState(false);
+  const [packingApp, setPackingApp] = useState(false);
 
-  async function downloadChannelKit() {
+  async function downloadProject() {
     setPacking(true);
     try {
-      const blob = await buildAndroidKitZip(latest);
-      const name = `switchboard-${latest.version.replace(/^v/, "")}-android-kit.zip`;
+      const blob = await buildAndroidProjectZip(latest);
+      const name = `switchboard-${latest.version.replace(/^v/, "")}-android-project.zip`;
       downloadBlob(blob, name);
-      toast("ok", `Android build kit downloading — ${name}`);
+      toast("ok", `Android project downloading — run ./build-apk.sh to compile the APK.`);
     } catch {
-      toast("bad", "Couldn't assemble the build kit in this browser.");
+      toast("bad", "Couldn't assemble the Android project in this browser.");
     } finally {
       setPacking(false);
     }
   }
+
+  async function downloadAppTop() {
+    setPackingApp(true);
+    try {
+      const blob = await buildAppBundleZip(latest);
+      const name = `switchboard-${latest.version.replace(/^v/, "")}-app.zip`;
+      downloadBlob(blob, name);
+      toast("ok", `App build downloading — unzip, serve, install on any device.`);
+    } catch {
+      toast("bad", "Couldn't fetch the app build from this origin.");
+    } finally {
+      setPackingApp(false);
+    }
+  }
+
   const totalCommits = RELEASES.reduce((a, r) => a + r.commits, 0);
+  const vPlain = latest.version.replace(/^v/, "");
 
   return (
     <div className="space-y-5">
+      {/* artifact bar — get the app */}
+      <section className="anim-rise hatch relative overflow-hidden rounded-xl border border-ink-700 bg-ink-900 px-5 py-5 shadow-md shadow-ink-950/20">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(620px 260px at 12% -30%, rgba(18,147,123,0.26), transparent 65%)" }}
+        />
+        <div className="relative flex flex-wrap items-center gap-x-6 gap-y-4">
+          <div className="min-w-[220px]">
+            <p className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.18em] text-pine-500">
+              release artifacts · {latest.version}
+            </p>
+            <h2 className="mt-1 font-display text-[22px] font-bold leading-tight text-white">
+              Get the app from this release
+            </h2>
+            <p className="mt-1 font-mono text-[10.5px] leading-relaxed text-mute2">
+              app build (.zip) installs anywhere · android project compiles to the signed{" "}
+              <span className="text-pine-500">switchboard-{vPlain}.apk</span>
+            </p>
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={downloadProject}
+              disabled={packing}
+              className="inline-flex items-center gap-2 rounded-lg bg-pine-600 px-4 py-2.5 font-display text-[13px] font-bold text-white shadow-lg shadow-pine-600/30 transition-all hover:bg-pine-500 active:translate-y-px disabled:cursor-wait disabled:opacity-70"
+            >
+              {packing ? (
+                <svg viewBox="0 0 24 24" className="h-4 w-4 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.6">
+                  <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <IconAndroid className="h-4 w-4" />
+              )}
+              {packing ? "Packing…" : "Download Android project (.zip)"}
+            </button>
+            <button
+              type="button"
+              onClick={downloadAppTop}
+              disabled={packingApp}
+              className="inline-flex items-center gap-2 rounded-lg border border-ink-700 bg-ink-850/70 px-4 py-2.5 font-display text-[13px] font-semibold text-fog transition-colors hover:bg-ink-800 hover:text-white active:translate-y-px disabled:cursor-wait disabled:opacity-70"
+            >
+              {packingApp ? (
+                <svg viewBox="0 0 24 24" className="h-4 w-4 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.6">
+                  <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <IconDownload className="h-4 w-4" />
+              )}
+              {packingApp ? "Packing…" : "Download app (.zip)"}
+            </button>
+          </div>
+          <div className="flex w-full items-center gap-2 rounded-lg border border-ink-700/80 bg-ink-950/70 px-3 py-2">
+            <span className="font-mono text-[9px] uppercase tracking-wider text-mute2">to the apk</span>
+            <code className="scroll-dark min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-[11px] text-pine-200">
+              unzip switchboard-{vPlain}-android-project.zip && ./build-apk.sh
+            </code>
+            <CopyBtn text={`unzip switchboard-${vPlain}-android-project.zip && ./build-apk.sh`} dark />
+          </div>
+        </div>
+      </section>
+
       {/* cadence strip */}
       <section className="anim-rise flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-line bg-card px-5 py-4 shadow-sm">
         <div>
@@ -447,7 +525,7 @@ export default function Releases() {
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={downloadChannelKit}
+                onClick={downloadProject}
                 disabled={packing}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-pine-600 px-3 py-2 font-display text-[12.5px] font-bold text-white shadow-md shadow-pine-600/25 transition-all hover:bg-pine-500 active:translate-y-px disabled:cursor-wait disabled:opacity-70"
               >
@@ -456,9 +534,9 @@ export default function Releases() {
                     <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
                   </svg>
                 ) : (
-                  <IconDownload className="h-3.5 w-3.5" />
+                  <IconAndroid className="h-3.5 w-3.5" />
                 )}
-                {packing ? "Packing…" : "Download build kit (.zip)"}
+                {packing ? "Packing…" : "Download Android project (.zip)"}
               </button>
               <button
                 type="button"

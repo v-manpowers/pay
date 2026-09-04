@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CURRENT_VERSION, RELEASES, releaseMarkdown, type ChangeKind, type Release } from "../lib/releases";
 import { useApp } from "../lib/store";
-import { IconCheck, IconChevron, IconCopy, IconDownload, IconTag } from "./icons";
+import { IconBolt, IconCheck, IconChevron, IconCopy, IconDownload, IconTag } from "./icons";
 import { CopyBtn, SectionLabel } from "./ui";
 
 const KIND_META: Record<ChangeKind, { label: string; cls: string }> = {
@@ -151,7 +151,10 @@ function ReleaseCard({ release, index }: { release: Release; index: number }) {
             <ul className={`anim-rise divide-y px-4 pb-3 md:px-5 ${isLatest ? "divide-ink-700/70" : "divide-line/70"}`}>
               {release.assets.map((a) => (
                 <li key={a.name} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-                  <span className={`font-mono text-[12px] font-medium ${isLatest ? "text-white" : "text-ink-900"}`}>{a.name}</span>
+                  <span className="min-w-[190px]">
+                    <span className={`block font-mono text-[12px] font-medium ${isLatest ? "text-white" : "text-ink-900"}`}>{a.name}</span>
+                    {a.note && <span className="block font-mono text-[9.5px] text-mute2">{a.note}</span>}
+                  </span>
                   <span className={`font-mono text-[10.5px] ${isLatest ? "text-mute2" : "text-mute2"}`}>{a.size}</span>
                   <code className={`min-w-0 flex-1 truncate rounded px-1.5 py-0.5 font-mono text-[10px] ${isLatest ? "bg-ink-950/60 text-fog" : "bg-paper text-mute"}`}>
                     sha256 {a.sha256.slice(0, 18)}…
@@ -200,6 +203,7 @@ function ReleaseCard({ release, index }: { release: Release; index: number }) {
 
 export default function Releases() {
   const latest = RELEASES[0];
+  const apkAsset = latest.assets.find((a) => a.name.endsWith(".apk")) ?? latest.assets[0];
   const gaCount = RELEASES.filter((r) => !r.prerelease).length;
   const totalCommits = RELEASES.reduce((a, r) => a + r.commits, 0);
 
@@ -248,6 +252,65 @@ export default function Releases() {
           ))}
         </ol>
       </div>
+
+      {/* Android channel */}
+      <section className="hatch relative overflow-hidden rounded-xl border border-ink-700 bg-ink-900 p-5 shadow-sm">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "radial-gradient(560px 240px at 90% -10%, rgba(18,147,123,0.22), transparent 65%)" }}
+        />
+        <div className="relative flex flex-wrap items-stretch gap-5">
+          <div className="min-w-[250px] flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <IconBolt className="h-4 w-4 text-pine-500" />
+              <h2 className="font-display text-[16px] font-bold text-white">Android channel</h2>
+              <span className="rounded-full border border-pine-500/50 bg-pine-600/15 px-2.5 py-0.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.12em] text-pine-500">
+                apk · aab
+              </span>
+            </div>
+            <p className="mt-2 max-w-[440px] text-[12.5px] leading-relaxed text-fog">
+              The APK is a signed Trusted Web Activity around this exact web shell — one codebase, one
+              pipeline. Point Bubblewrap at the deployed manifest, sign with your keystore, and the same
+              v{latest.version.replace(/^v/, "")} build ships to launchers and the Play Store.
+            </p>
+            <div className="mt-3 space-y-1.5">
+              {[
+                "bubblewrap init --manifest=https://your-domain.example/manifest.webmanifest",
+                "bubblewrap build",
+              ].map((cmd) => (
+                <div key={cmd} className="flex items-center gap-1 rounded-lg bg-ink-950/80 py-1 pl-3 pr-1">
+                  <code className="scroll-dark min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-[11px] text-pine-200">
+                    {cmd}
+                  </code>
+                  <CopyBtn text={cmd} dark />
+                </div>
+              ))}
+            </div>
+            <p className="mt-2.5 font-mono text-[9.5px] text-mute2">
+              no CLI? pwabuilder.com → Package → Android emits the signed pair from the same manifest
+            </p>
+          </div>
+
+          <div className="flex w-full max-w-[300px] flex-col rounded-lg border border-ink-700 bg-ink-950/60 p-3.5">
+            <p className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-mute2">current artifact</p>
+            <p className="mt-1.5 font-mono text-[13px] font-semibold text-white">switchboard-{latest.version.replace(/^v/, "")}.apk</p>
+            <p className="font-mono text-[10px] text-mute2">6.4 MB · minSdk 23 · targetSdk 34</p>
+            <div className="mt-2.5 flex items-center gap-1.5 rounded-md bg-ink-900 px-2 py-1.5">
+              <code className="min-w-0 flex-1 truncate font-mono text-[9.5px] text-fog" title={apkAsset.sha256}>
+                {apkAsset.sha256}
+              </code>
+              <CopyBtn text={apkAsset.sha256} dark />
+            </div>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent("sb:open-getapp"))}
+              className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-pine-600 px-3 py-2 font-display text-[12.5px] font-bold text-white shadow-md shadow-pine-600/25 transition-all hover:bg-pine-500 active:translate-y-px"
+            >
+              <IconDownload className="h-3.5 w-3.5" /> Get it on a device
+            </button>
+          </div>
+        </div>
+      </section>
 
       <p className="pb-2 text-center font-mono text-[10.5px] text-mute2">
         {latest.version} “{latest.codename}” shipped {latest.displayDate} — checksums verify against the registry on every pull.

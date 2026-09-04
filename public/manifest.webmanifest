@@ -1,0 +1,30 @@
+{
+  "name": "Switchboard — Payments Console",
+  "short_name": "Switchboard",
+  "description": "Live payment gateway console: authorization stream, capture terminal, ledger, and developer tools.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07101d",
+  "theme_color": "#07101d",
+  "categories": ["finance", "business", "developer-tools"],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

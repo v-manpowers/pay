@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Developers from "./components/Developers";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { IconPause, IconPlay, IconPlus, IconTag, IconX, LogoMark } from "./components/icons";
+import GetAppModal, { type InstallPromptEvent } from "./components/GetAppModal";
+import { IconDownload, IconPause, IconPlay, IconPlus, IconTag, IconX, LogoMark } from "./components/icons";
 import Ledger from "./components/Ledger";
 import Overview from "./components/Overview";
 import Releases from "./components/Releases";
@@ -45,6 +46,7 @@ const RELEASE_NOTES: { version: string; date: string; notes: string[] }[] = [
       "Payment ledger with full-text search, status filters, refunds, and CSV export",
       "Developer console: revocable secret keys, quickstart snippets, webhook inspector",
       "Schema-versioned local persistence — console state survives reloads and upgrades",
+      "Installable app shell — web manifest, offline service worker, signed Android APK path via Bubblewrap",
       "Error boundary, keyboard shortcuts (1–5, /, ?), and sandbox reset under Danger zone",
     ],
   },
@@ -169,8 +171,10 @@ function UtcClock() {
 }
 
 function Shell() {
-  const { state, setView, toggleEnv, toggleRunning } = useApp();
+  const { state, setView, toggleEnv, toggleRunning, toast } = useApp();
   const [changelog, setChangelog] = useState(false);
+  const [getApp, setGetApp] = useState(false);
+  const [installEvt, setInstallEvt] = useState<InstallPromptEvent | null>(null);
   const [banner, setBanner] = useState(() => {
     try {
       return localStorage.getItem("sb:banner:1.0.0") !== "1";
@@ -205,6 +209,38 @@ function Shell() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [setView]);
+
+  /* capture the browser's install offer (PWA / Android) */
+  useEffect(() => {
+    const onOffer = (e: Event) => {
+      e.preventDefault();
+      setInstallEvt(e as InstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", onOffer);
+    return () => window.removeEventListener("beforeinstallprompt", onOffer);
+  }, []);
+
+  /* other views can request the Get-app modal */
+  useEffect(() => {
+    const onOpen = () => setGetApp(true);
+    window.addEventListener("sb:open-getapp", onOpen);
+    return () => window.removeEventListener("sb:open-getapp", onOpen);
+  }, []);
+
+  async function runInstall() {
+    if (!installEvt) {
+      setGetApp(true);
+      return;
+    }
+    await installEvt.prompt();
+    const choice = await installEvt.userChoice;
+    if (choice.outcome === "accepted") {
+      toast("ok", "Installed — Switchboard is on your launcher now.");
+      setInstallEvt(null);
+    } else {
+      toast("info", "Install dismissed — reopen it any time from Get app.");
+    }
+  }
 
   function dismissBanner() {
     setBanner(false);
@@ -258,6 +294,15 @@ function Shell() {
 
             <div className="ml-auto flex items-center gap-2">
               <UtcClock />
+              <button
+                type="button"
+                onClick={() => (installEvt ? runInstall() : setGetApp(true))}
+                title={installEvt ? "Install the console app" : "Get the app — install & Android APK"}
+                className="flex items-center gap-1.5 rounded-lg border border-line bg-card px-2.5 py-1.5 font-mono text-[11px] font-semibold text-mute transition-all hover:border-pine-600 hover:text-pine-700 active:scale-95"
+              >
+                <IconDownload className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">{installEvt ? "Install app" : "Get app"}</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setChangelog(true)}
@@ -314,12 +359,26 @@ function Shell() {
             <span className="font-semibold text-mute">switchboard sandbox</span>
             <span>no real funds move in this environment</span>
             <span className="hidden sm:inline">shortcuts: 1–5 views · / search · ? release notes</span>
+            <button
+              type="button"
+              onClick={() => setGetApp(true)}
+              className="underline decoration-dotted underline-offset-2 transition-colors hover:text-pine-700"
+            >
+              get the app · android apk
+            </button>
             <span className="ml-auto">region us-east-1 · shard 04 · build {VERSION} · schema v2</span>
           </p>
         </footer>
       </div>
 
       <Toasts />
+
+      <GetAppModal
+        open={getApp}
+        onClose={() => setGetApp(false)}
+        installEvt={installEvt}
+        onInstall={runInstall}
+      />
 
       {/* changelog */}
       <Modal open={changelog} onClose={() => setChangelog(false)} width="max-w-lg">

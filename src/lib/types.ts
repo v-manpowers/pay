@@ -1,4 +1,4 @@
-export type View = "overview" | "terminal" | "ledger" | "developers";
+export type View = "overview" | "terminal" | "ledger" | "developers" | "releases";
 export type Env = "test" | "live";
 export type Status = "approved" | "declined" | "pending" | "refunded";
 export type Brand = "visa" | "mastercard" | "amex" | "discover" | "card";

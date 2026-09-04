@@ -6,6 +6,7 @@ import {
   IconCode,
   IconLedger,
   IconPulse,
+  IconTag,
   IconTerminal,
   LogoMark,
 } from "./icons";
@@ -15,6 +16,7 @@ const NAV: { view: View; label: string; icon: ComponentType<{ className?: string
   { view: "terminal", label: "Terminal", icon: IconTerminal },
   { view: "ledger", label: "Ledger", icon: IconLedger },
   { view: "developers", label: "Developers", icon: IconCode },
+  { view: "releases", label: "Releases", icon: IconTag },
 ];
 
 export default function Sidebar() {

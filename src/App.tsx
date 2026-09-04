@@ -4,6 +4,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { IconPause, IconPlay, IconPlus, IconTag, IconX, LogoMark } from "./components/icons";
 import Ledger from "./components/Ledger";
 import Overview from "./components/Overview";
+import Releases from "./components/Releases";
 import Sidebar from "./components/Sidebar";
 import Terminal from "./components/Terminal";
 import Toasts from "./components/Toasts";
@@ -28,6 +29,10 @@ const META: Record<View, { title: string; sub: string }> = {
     title: "Developer console",
     sub: "Credentials, quickstart snippets, and webhook delivery health.",
   },
+  releases: {
+    title: "Releases",
+    sub: "Every console build, tagged, checksummed, and accounted for.",
+  },
 };
 
 const RELEASE_NOTES: { version: string; date: string; notes: string[] }[] = [
@@ -40,7 +45,7 @@ const RELEASE_NOTES: { version: string; date: string; notes: string[] }[] = [
       "Payment ledger with full-text search, status filters, refunds, and CSV export",
       "Developer console: revocable secret keys, quickstart snippets, webhook inspector",
       "Schema-versioned local persistence — console state survives reloads and upgrades",
-      "Error boundary, keyboard shortcuts (1–4, /, ?), and sandbox reset under Danger zone",
+      "Error boundary, keyboard shortcuts (1–5, /, ?), and sandbox reset under Danger zone",
     ],
   },
 ];
@@ -186,8 +191,8 @@ function Shell() {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const views: View[] = ["overview", "terminal", "ledger", "developers"];
-      if (e.key >= "1" && e.key <= "4") {
+      const views: View[] = ["overview", "terminal", "ledger", "developers", "releases"];
+      if (e.key >= "1" && e.key <= "5") {
         setView(views[Number(e.key) - 1]);
       } else if (e.key === "/") {
         e.preventDefault();
@@ -300,6 +305,7 @@ function Shell() {
             {state.view === "terminal" && <Terminal />}
             {state.view === "ledger" && <Ledger />}
             {state.view === "developers" && <Developers />}
+            {state.view === "releases" && <Releases />}
           </div>
         </main>
 
@@ -307,7 +313,7 @@ function Shell() {
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] text-mute2">
             <span className="font-semibold text-mute">switchboard sandbox</span>
             <span>no real funds move in this environment</span>
-            <span className="hidden sm:inline">shortcuts: 1–4 views · / search · ? release notes</span>
+            <span className="hidden sm:inline">shortcuts: 1–5 views · / search · ? release notes</span>
             <span className="ml-auto">region us-east-1 · shard 04 · build {VERSION} · schema v2</span>
           </p>
         </footer>
@@ -346,9 +352,21 @@ function Shell() {
               </div>
             ))}
           </div>
-          <p className="mt-4 border-t border-line pt-3 font-mono text-[10.5px] text-mute2">
-            console build {VERSION} · schema v{2} · state persists locally between sessions
-          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+            <p className="font-mono text-[10.5px] text-mute2">
+              console build {VERSION} · schema v{2} · state persists locally between sessions
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setChangelog(false);
+                setView("releases");
+              }}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-pine-600/50 bg-pine-50 px-3 py-1.5 font-mono text-[11px] font-semibold text-pine-700 transition-all hover:bg-pine-100 active:scale-95"
+            >
+              <IconTag className="h-3.5 w-3.5" /> Full release timeline
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "dev.switchboard.twa",
+      "sha256_cert_fingerprints": [
+        "8F:43:D9:C1:A0:7B:E2:F5:5C:9D:3E:10:B6:A4:4F:27:D9:1C:8A:35:E0:F7:B2:16:4D:88:93:CE:5A:1F:07:B2"
+      ]
+    }
+  }
+]

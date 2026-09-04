@@ -1,4 +1,5 @@
 import { IconBolt, IconCode, IconDownload, IconGlobe, IconInfo, IconShield } from "./icons";
+import PhonePreview from "./PhonePreview";
 import { CopyBtn, Modal, ModalClose, SectionLabel } from "./ui";
 
 export interface InstallPromptEvent extends Event {
@@ -33,14 +34,15 @@ export default function GetAppModal({
   onInstall: () => void;
 }) {
   return (
-    <Modal open={open} onClose={onClose} width="max-w-lg">
-      <div className="p-5">
-        <div className="flex items-start justify-between">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-pine-100">
-            <IconDownload className="h-5 w-5 text-pine-700" />
-          </span>
-          <ModalClose onClose={onClose} />
-        </div>
+    <Modal open={open} onClose={onClose} width="max-w-3xl">
+      <div className="grid gap-6 p-5 md:grid-cols-[1fr_272px]">
+        <div className="min-w-0">
+          <div className="flex items-start justify-between">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-pine-100">
+              <IconDownload className="h-5 w-5 text-pine-700" />
+            </span>
+            <ModalClose onClose={onClose} />
+          </div>
         <h3 className="mt-3 font-display text-[17px] font-bold text-ink-900">
           Get Switchboard on a device
         </h3>
@@ -112,16 +114,30 @@ export default function GetAppModal({
           </div>
         </div>
 
-        <p className="mt-3.5 flex items-start gap-2 font-mono text-[10px] leading-relaxed text-mute2">
-          <IconShield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-pine-600" />
-          Serve over HTTPS — the TWA build verifies the asset-link between the APK and your domain before
-          it will run fullscreen.
-        </p>
-        <p className="mt-2 flex items-start gap-2 font-mono text-[10px] leading-relaxed text-mute2">
-          <IconInfo className="mt-0.5 h-3.5 w-3.5 shrink-0 text-info-600" />
-          Ledger, keys, and webhook history persist in the device vault, so the installed app survives
-          restarts exactly like this tab does.
-        </p>
+          <div className="mt-3.5 flex items-start gap-2 font-mono text-[10px] leading-relaxed text-mute2">
+            <IconShield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-pine-600" />
+            <span>
+              Serve over HTTPS and publish{" "}
+              <code className="rounded bg-paper px-1 py-0.5 font-mono text-[9.5px] text-ink-900">
+                /.well-known/assetlinks.json
+              </code>{" "}
+              — already generated in dist — so the TWA verifies its domain link and runs fullscreen.
+              <span className="ml-1 inline-block align-middle">
+                <CopyBtn text="/.well-known/assetlinks.json" />
+              </span>
+            </span>
+          </div>
+          <p className="mt-2 flex items-start gap-2 font-mono text-[10px] leading-relaxed text-mute2">
+            <IconInfo className="mt-0.5 h-3.5 w-3.5 shrink-0 text-info-600" />
+            Ledger, keys, and webhook history persist in the device vault, so the installed app survives
+            restarts exactly like this tab does.
+          </p>
+        </div>
+
+        {/* on-device preview */}
+        <div className="flex items-start justify-center rounded-xl bg-ink-950/[0.04] p-4 md:bg-transparent md:p-0 md:pt-1">
+          <PhonePreview />
+        </div>
       </div>
     </Modal>
   );

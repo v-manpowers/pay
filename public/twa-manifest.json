@@ -1,0 +1,26 @@
+{
+  "packageId": "dev.switchboard.twa",
+  "host": "your-domain.example",
+  "name": "Switchboard — Payments Console",
+  "launcherName": "Switchboard",
+  "shortName": "Switchboard",
+  "display": "standalone",
+  "themeColor": "#07101d",
+  "navigationColor": "#07101d",
+  "backgroundColor": "#07101d",
+  "enableNotifications": false,
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "orientation": "portrait",
+  "startUrl": "/",
+  "iconUrl": "/icons/icon.svg",
+  "maskableIconUrl": "/icons/icon.svg",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./release-keystore.jks",
+    "alias": "switchboard-release"
+  },
+  "appVersionCode": 10000,
+  "appVersionName": "1.0.0",
+  "generator": "Switchboard release pipeline — bubblewrap v1.21"
+}

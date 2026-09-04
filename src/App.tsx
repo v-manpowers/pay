@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import BottomNav from "./components/BottomNav";
 import Developers from "./components/Developers";
 import ErrorBoundary from "./components/ErrorBoundary";
 import GetAppModal, { type InstallPromptEvent } from "./components/GetAppModal";
@@ -47,6 +48,7 @@ const RELEASE_NOTES: { version: string; date: string; notes: string[] }[] = [
       "Developer console: revocable secret keys, quickstart snippets, webhook inspector",
       "Schema-versioned local persistence — console state survives reloads and upgrades",
       "Installable app shell — web manifest, offline service worker, signed Android APK path via Bubblewrap",
+      "Android app parity — material-style bottom tab bar on phones and a live on-device preview",
       "Error boundary, keyboard shortcuts (1–5, /, ?), and sandbox reset under Danger zone",
     ],
   },
@@ -255,7 +257,7 @@ function Shell() {
     <div className="flex min-h-screen">
       <Sidebar />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col pb-[64px] md:pb-0">
         {/* release banner */}
         {banner && (
           <div className="anim-feed flex items-center gap-2.5 border-b border-pine-700/40 bg-pine-600 px-4 py-2 text-white md:px-6">
@@ -372,6 +374,7 @@ function Shell() {
       </div>
 
       <Toasts />
+      <BottomNav />
 
       <GetAppModal
         open={getApp}

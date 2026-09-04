@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CURRENT_VERSION, RELEASES, releaseMarkdown, type ChangeKind, type Release } from "../lib/releases";
+import { buildAndroidKitZip, buildReleaseBundleZip, downloadBlob } from "../lib/releaseZip";
 import { useApp } from "../lib/store";
 import { IconBolt, IconCheck, IconChevron, IconCopy, IconDownload, IconTag } from "./icons";
 import { CopyBtn, SectionLabel } from "./ui";
@@ -62,8 +63,39 @@ function DiffBar({ additions, deletions }: { additions: number; deletions: numbe
 
 function ReleaseCard({ release, index }: { release: Release; index: number }) {
   const { copied, copyNotes, downloadNotes } = useNotesActions();
+  const { toast } = useApp();
   const [showAssets, setShowAssets] = useState(Boolean(release.latest));
+  const [zipping, setZipping] = useState(false);
+  const [zippingKit, setZippingKit] = useState(false);
   const isLatest = Boolean(release.latest);
+
+  async function downloadBundle() {
+    setZipping(true);
+    try {
+      const blob = await buildReleaseBundleZip(release);
+      const name = `switchboard-${release.version.replace(/^v/, "")}-bundle.zip`;
+      downloadBlob(blob, name);
+      toast("ok", `Release bundle downloading — ${name}`);
+    } catch {
+      toast("bad", "Couldn't assemble the bundle in this browser.");
+    } finally {
+      setZipping(false);
+    }
+  }
+
+  async function downloadKit(artifact: string) {
+    setZippingKit(true);
+    try {
+      const blob = await buildAndroidKitZip(release);
+      const name = `switchboard-${release.version.replace(/^v/, "")}-android-kit.zip`;
+      downloadBlob(blob, name);
+      toast("ok", `Build kit for ${artifact} downloading — run android/build.sh to produce it.`);
+    } catch {
+      toast("bad", "Couldn't assemble the build kit in this browser.");
+    } finally {
+      setZippingKit(false);
+    }
+  }
 
   return (
     <li className="anim-rise relative pl-8 md:pl-12" style={{ animationDelay: `${index * 70}ms` }}>
@@ -162,6 +194,28 @@ function ReleaseCard({ release, index }: { release: Release; index: number }) {
                   <span className={isLatest ? "[&>button]:text-fog" : ""}>
                     <CopyBtn text={a.sha256} dark={isLatest} />
                   </span>
+                  {a.name.endsWith(".apk") && (
+                    <button
+                      type="button"
+                      onClick={() => downloadKit(a.name)}
+                      disabled={zippingKit}
+                      title="Download the Android build kit that compiles this artifact"
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-[10px] font-bold transition-all active:scale-95 disabled:opacity-60 ${
+                        isLatest
+                          ? "bg-pine-600/20 text-pine-500 hover:bg-pine-600/30"
+                          : "bg-pine-100 text-pine-700 hover:bg-pine-200"
+                      }`}
+                    >
+                      {zippingKit ? (
+                        <svg viewBox="0 0 24 24" className="h-3 w-3 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.6">
+                          <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+                        </svg>
+                      ) : (
+                        <IconDownload className="h-3 w-3" />
+                      )}
+                      build kit
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -169,6 +223,23 @@ function ReleaseCard({ release, index }: { release: Release; index: number }) {
         </div>
 
         <footer className={`flex flex-wrap items-center gap-2 border-t px-4 py-3 md:px-5 ${isLatest ? "border-ink-700" : "border-line"}`}>
+          {isLatest && (
+            <button
+              type="button"
+              onClick={downloadBundle}
+              disabled={zipping}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-pine-600 px-3 py-1.5 font-mono text-[11.5px] font-bold text-white shadow-md shadow-pine-600/25 transition-all hover:bg-pine-500 active:scale-95 disabled:cursor-wait disabled:opacity-70"
+            >
+              {zipping ? (
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.6">
+                  <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <IconDownload className="h-3.5 w-3.5" />
+              )}
+              {zipping ? "packing…" : "download bundle (.zip)"}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => copyNotes(release)}
@@ -205,6 +276,22 @@ export default function Releases() {
   const latest = RELEASES[0];
   const apkAsset = latest.assets.find((a) => a.name.endsWith(".apk")) ?? latest.assets[0];
   const gaCount = RELEASES.filter((r) => !r.prerelease).length;
+  const { toast } = useApp();
+  const [packing, setPacking] = useState(false);
+
+  async function downloadChannelKit() {
+    setPacking(true);
+    try {
+      const blob = await buildAndroidKitZip(latest);
+      const name = `switchboard-${latest.version.replace(/^v/, "")}-android-kit.zip`;
+      downloadBlob(blob, name);
+      toast("ok", `Android build kit downloading — ${name}`);
+    } catch {
+      toast("bad", "Couldn't assemble the build kit in this browser.");
+    } finally {
+      setPacking(false);
+    }
+  }
   const totalCommits = RELEASES.reduce((a, r) => a + r.commits, 0);
 
   return (
@@ -301,13 +388,30 @@ export default function Releases() {
               </code>
               <CopyBtn text={apkAsset.sha256} dark />
             </div>
-            <button
-              type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent("sb:open-getapp"))}
-              className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg bg-pine-600 px-3 py-2 font-display text-[12.5px] font-bold text-white shadow-md shadow-pine-600/25 transition-all hover:bg-pine-500 active:translate-y-px"
-            >
-              <IconDownload className="h-3.5 w-3.5" /> Get it on a device
-            </button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={downloadChannelKit}
+                disabled={packing}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-pine-600 px-3 py-2 font-display text-[12.5px] font-bold text-white shadow-md shadow-pine-600/25 transition-all hover:bg-pine-500 active:translate-y-px disabled:cursor-wait disabled:opacity-70"
+              >
+                {packing ? (
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.6">
+                    <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <IconDownload className="h-3.5 w-3.5" />
+                )}
+                {packing ? "Packing…" : "Download build kit (.zip)"}
+              </button>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent("sb:open-getapp"))}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-ink-700 px-3 py-2 font-display text-[12.5px] font-semibold text-fog transition-colors hover:bg-ink-850 hover:text-white active:translate-y-px"
+              >
+                <IconBolt className="h-3.5 w-3.5 text-pine-500" /> Get it on a device
+              </button>
+            </div>
           </div>
         </div>
       </section>

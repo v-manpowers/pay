@@ -1,3 +1,7 @@
+import { useState } from "react";
+import { buildAppBundleZip, downloadBlob } from "../lib/releaseZip";
+import { CURRENT_VERSION, RELEASES } from "../lib/releases";
+import { useApp } from "../lib/store";
 import { IconBolt, IconCode, IconDownload, IconGlobe, IconInfo, IconShield } from "./icons";
 import PhonePreview from "./PhonePreview";
 import { CopyBtn, Modal, ModalClose, SectionLabel } from "./ui";
@@ -33,6 +37,23 @@ export default function GetAppModal({
   installEvt: InstallPromptEvent | null;
   onInstall: () => void;
 }) {
+  const { toast } = useApp();
+  const [zipping, setZipping] = useState(false);
+
+  async function downloadApp() {
+    setZipping(true);
+    try {
+      const release = RELEASES[0];
+      const blob = await buildAppBundleZip(release);
+      downloadBlob(blob, `switchboard-${CURRENT_VERSION.replace(/^v/, "")}-app.zip`);
+      toast("ok", "App build downloading — unzip and serve it, then install on any device.");
+    } catch {
+      toast("bad", "Couldn't fetch the app build from this origin.");
+    } finally {
+      setZipping(false);
+    }
+  }
+
   return (
     <Modal open={open} onClose={onClose} width="max-w-3xl">
       <div className="grid gap-6 p-5 md:grid-cols-[1fr_272px]">
@@ -50,6 +71,23 @@ export default function GetAppModal({
           The console ships as an installable app shell — offline-capable once cached — and the same
           v1.0.0 build compiles into a signed Android APK with no code fork.
         </p>
+
+        {/* one-click app download */}
+        <button
+          type="button"
+          onClick={downloadApp}
+          disabled={zipping}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-pine-600 px-4 py-2.5 font-display text-[13.5px] font-bold text-white shadow-md shadow-pine-600/25 transition-all hover:bg-pine-700 active:translate-y-px disabled:cursor-wait disabled:opacity-70"
+        >
+          {zipping ? (
+            <svg viewBox="0 0 24 24" className="h-4 w-4 animate-spin" fill="none" stroke="currentColor" strokeWidth="2.6">
+              <path d="M12 3a9 9 0 1 0 9 9" strokeLinecap="round" />
+            </svg>
+          ) : (
+            <IconDownload className="h-4 w-4" />
+          )}
+          {zipping ? "Packing the app…" : `Download the app (.zip) · ${CURRENT_VERSION}`}
+        </button>
 
         {/* instant install */}
         <div className="mt-4 rounded-xl border border-line bg-paper/70 p-4">

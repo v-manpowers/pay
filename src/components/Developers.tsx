@@ -9,6 +9,7 @@ import {
   IconKey,
   IconRotate,
   IconSend,
+  IconTrash,
 } from "./icons";
 import { CopyBtn, Modal, ModalClose, SectionLabel } from "./ui";
 
@@ -65,9 +66,10 @@ const TYPE_TONE: Record<string, string> = {
 };
 
 export default function Developers() {
-  const { state, rotateKeys, sendTestEvent, toast } = useApp();
+  const { state, rotateKeys, sendTestEvent, resetSandbox, toast } = useApp();
   const [reveal, setReveal] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [rotating, setRotating] = useState(false);
   const [tab, setTab] = useState<keyof typeof SNIPPETS>("curl");
   const [openEvt, setOpenEvt] = useState<string | null>(null);
@@ -191,6 +193,33 @@ export default function Developers() {
             ))}
           </ul>
         </section>
+
+        {/* Danger zone */}
+        <section className="rounded-xl border border-bad-600/30 bg-card shadow-sm">
+          <header className="flex items-center gap-2.5 border-b border-line px-4 py-3">
+            <IconAlert className="h-4.5 w-4.5 text-bad-600" />
+            <h2 className="font-display text-[15px] font-bold text-ink-900">Danger zone</h2>
+            <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-mute2">
+              schema v2 · stored locally
+            </span>
+          </header>
+          <div className="flex flex-wrap items-center gap-3 p-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium text-ink-900">Reset sandbox data</p>
+              <p className="mt-0.5 text-[12px] leading-relaxed text-mute">
+                Wipes the local ledger, webhook log, and credentials, then reseeds a fresh sandbox.
+                This cannot be undone.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setConfirmReset(true)}
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-bad-600/50 bg-bad-100/60 px-3.5 py-2 font-mono text-[12px] font-semibold text-bad-700 transition-all hover:bg-bad-100 active:translate-y-px"
+            >
+              <IconTrash className="h-4 w-4" /> Reset sandbox
+            </button>
+          </div>
+        </section>
       </div>
 
       {/* Webhooks */}
@@ -302,6 +331,42 @@ export default function Developers() {
           <p className="mt-3 flex items-center gap-1.5 font-mono text-[10px] text-mute2">
             <IconCheck className="h-3 w-3 text-ok-600" /> an account.key_rotated webhook fires on success
           </p>
+        </div>
+      </Modal>
+
+      {/* sandbox reset confirm */}
+      <Modal open={confirmReset} onClose={() => setConfirmReset(false)} width="max-w-sm">
+        <div className="p-5">
+          <div className="flex items-start justify-between">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-bad-100">
+              <IconTrash className="h-5 w-5 text-bad-600" />
+            </span>
+            <ModalClose onClose={() => setConfirmReset(false)} />
+          </div>
+          <h3 className="mt-3 font-display text-[17px] font-bold text-ink-900">Reset the sandbox?</h3>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-mute">
+            This clears every locally stored payment, webhook delivery, and API credential, then
+            reseeds a fresh environment. Terminal sessions and filters start over from zero.
+          </p>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmReset(false)}
+              className="flex-1 rounded-lg border border-line px-3 py-2.5 text-[13px] font-semibold text-mute transition-colors hover:bg-paper hover:text-ink-900"
+            >
+              Keep my data
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                resetSandbox();
+                setConfirmReset(false);
+              }}
+              className="flex-1 rounded-lg bg-bad-600 px-3 py-2.5 text-[13px] font-bold text-white shadow-md shadow-bad-600/25 transition-all hover:brightness-110 active:translate-y-px"
+            >
+              Reset everything
+            </button>
+          </div>
         </div>
       </Modal>
 

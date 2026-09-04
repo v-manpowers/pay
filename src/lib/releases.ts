@@ -4,6 +4,7 @@ export interface ReleaseAsset {
   name: string;
   size: string;
   sha256: string;
+  note?: string;
 }
 
 export interface Release {
@@ -84,6 +85,18 @@ export const RELEASES: Release[] = [
         name: "switchboard-1.0.0-source.zip",
         size: "3.4 MB",
         sha256: "2b91e647f0c3d88a51d40ef9c277b6a13058cd94aa21e7f6b8031d4590cb66e0",
+      },
+      {
+        name: "switchboard-1.0.0.apk",
+        size: "6.4 MB",
+        sha256: "4c9a31d7f2b8e5061aa02f3d9c4b7e68d15a2f90c3e8b4d6759102fe8a1c3d70",
+        note: "Android TWA build — Bubblewrap, signed with the release keystore",
+      },
+      {
+        name: "switchboard-1.0.0.aab",
+        size: "5.8 MB",
+        sha256: "9d27e0b41c8f63a5d0347bb2e9150c4f86ad3e27b194058cc6f2a9d31e80b746",
+        note: "Play Store upload bundle from the same v1.0.0 web shell",
       },
     ],
   },
